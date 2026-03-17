@@ -16,15 +16,17 @@
 - **周日历视图**: 直观展示最近 7 天签到情况
 - **思乡话语**: 内置 20 条思乡话语，打卡后自动生成
 - **自定义话语**: 用户可添加自己的思乡话语
-- **分享功能**: 生成分享文案，一键复制
 - **AI 思乡话语生成**: 支持多模型（Claude/通义千问/OpenAI 等），签到时根据用户家乡自动生成方言风格思乡话语
+- **徽章系统**: 14 种徽章（时间徽章、连续徽章、特殊徽章），记录签到成就
+- **家庭问候**: 配置家庭成员称呼，签到时生成家庭问候语
+- **Vue 3 前端**: 现代化 SPA 应用，响应式设计，支持移动端
 
 ## 技术栈
 
 - **后端**: Python + Flask
+- **前端**: Vue 3 + Vite + Pinia + Vue Router + Axios + TailwindCSS
 - **数据存储**: JSON 文件（轻量级，无需数据库）
-- **前端**: HTML/CSS/JavaScript（响应式设计）
-- **包管理**: pixi
+- **包管理**: pixi (Python), npm (Node.js)
 
 ## 快速开始
 
@@ -68,11 +70,33 @@ AI_MODEL=gpt-4o-mini
 
 ### 3. 启动应用
 
+本项目包含前后端，需要分别启动：
+
+**启动后端（Flask）：**
 ```bash
 pixi run dev
 ```
 
-访问 http://localhost:5001
+**启动前端（Vite + Vue 3）：**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+启动完成后，访问 **http://localhost:3000** 使用应用。
+
+> 前端开发服务器（port 3000）会自动代理 API 请求到后端（port 5001）
+
+## 测试账号
+
+项目包含预配置的测试账号，可用于快速体验：
+
+| 用户名 | 密码 | 说明 |
+|--------|------|------|
+| `demo` | `demo123` | 默认测试账号（家乡：湖南长沙，当前城市：北京） |
+
+你也可以在登录页面注册新账号。
 
 ## 项目结构
 
@@ -82,9 +106,27 @@ HomeSignin/
 ├── config.py               # 配置文件
 ├── pixi.toml               # Pixi 配置
 ├── requirements.txt        # Python 依赖
+├── frontend/               # Vue 3 前端
+│   ├── src/
+│   │   ├── main.js         # 应用入口
+│   │   ├── App.vue         # 根组件
+│   │   ├── views/          # 页面组件
+│   │   │   ├── Dashboard.vue   # 仪表盘
+│   │   │   ├── Checkin.vue     # 签到页
+│   │   │   ├── Badges.vue      # 徽章墙
+│   │   │   └── Profile.vue     # 个人资料
+│   │   ├── components/     # 可复用组件
+│   │   ├── stores/         # Pinia 状态管理
+│   │   ├── router/         # 路由配置
+│   │   └── api/            # API 客户端
+│   ├── package.json        # 前端依赖
+│   ├── vite.config.js      # Vite 配置
+│   └── tailwind.config.js  # TailwindCSS 配置
 ├── data/
 │   ├── users.json          # 用户数据
 │   ├── checkins.json       # 签到记录
+│   ├── badges.json         # 徽章数据
+│   ├── ai_quotes.json      # AI 生成语录
 │   └── quotes.json         # 思乡话语（20 条内置）
 ├── models/
 │   ├── __init__.py
@@ -96,14 +138,16 @@ HomeSignin/
 │   ├── checkin.py          # 签到路由
 │   ├── dashboard.py        # 仪表盘路由
 │   ├── quotes.py           # 话语管理路由
-│   └── ai_hometown.py      # AI 思乡话语生成路由
+│   ├── ai_hometown.py      # AI 思乡话语生成路由
+│   ├── badges.py           # 徽章路由
+│   └── api.py              # JSON API 路由（供前端调用）
 ├── templates/              # HTML 模板
 │   └── ai_hometown/        # AI 生成模板
 ├── static/
 │   ├── css/
 │   │   └── style.css       # 样式文件
 │   └── js/
-│       └── main.js         # 前端脚本
+│   │   └── main.js         # 前端脚本
 └── utils/
     ├── __init__.py
     ├── quote_generator.py  # 话语生成器
@@ -160,11 +204,15 @@ AI 生成功能支持多种大模型 API，可通过配置切换：
 系统会根据你输入的家乡地点自动匹配对应的方言风格（如四川话、粤语、北京话等）。
 
 ## TODO
+
 - [ ] 添加地图模块，显示当前位置离家的距离
 - [ ] 添加用户头像上传功能
 - [ ] 实现多语言支持
 - [ ] 增加移动端推送提醒
 - [ ] 开发桌面端应用
+- [ ] 签到分享功能（生成海报图片）
+- [ ] 家庭群组成员管理（添加多个家庭成员）
+- [ ] 签到历史记录页面
 
 
 ## License
