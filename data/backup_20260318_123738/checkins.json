@@ -1,0 +1,53 @@
+{
+  "1": [
+    {
+      "checkin_date": "2026-03-13",
+      "checkin_time": "2026-03-13T09:30:16.504727",
+      "quote_id": 1,
+      "id": 1,
+      "user_id": 1
+    },
+    {
+      "checkin_date": "2026-03-12",
+      "checkin_time": "2026-03-12T09:30:16.504727",
+      "quote_id": 2,
+      "id": 2,
+      "user_id": 1
+    },
+    {
+      "checkin_date": "2026-03-11",
+      "checkin_time": "2026-03-11T09:30:16.504727",
+      "quote_id": 3,
+      "id": 3,
+      "user_id": 1
+    },
+    {
+      "checkin_date": "2026-03-09",
+      "checkin_time": "2026-03-09T09:30:16.504727",
+      "quote_id": 5,
+      "id": 4,
+      "user_id": 1
+    },
+    {
+      "checkin_date": "2026-03-08",
+      "checkin_time": "2026-03-08T09:30:16.504727",
+      "quote_id": 6,
+      "id": 5,
+      "user_id": 1
+    },
+    {
+      "checkin_date": "2026-03-07",
+      "checkin_time": "2026-03-07T09:30:16.504727",
+      "quote_id": 7,
+      "id": 6,
+      "user_id": 1
+    },
+    {
+      "checkin_date": "2026-03-14",
+      "checkin_time": "2026-03-14T00:01:32.159203",
+      "quote_id": 12,
+      "id": 7,
+      "user_id": 1
+    }
+  ]
+}

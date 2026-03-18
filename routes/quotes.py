@@ -1,66 +1,117 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, session, request
-from models.storage import QuoteStorage, UserStorage
-from utils.quote_generator import QuoteGenerator
+from flask import Blueprint, jsonify, request, session
 from routes.auth import login_required
+from models.database import db, User, Quote
+from utils.quote_generator import QuoteGenerator
 
 quotes_bp = Blueprint('quotes', __name__)
 
 
-@quotes_bp.route('/quotes')
+@quotes_bp.route('/api/quotes')
 @login_required
-def index():
-    """话语列表"""
-    user_id = session['user_id']
-    all_quotes = QuoteStorage.get_all_quotes(user_id)
-    categories = QuoteGenerator.get_all_categories()
+def get_quotes():
+    """API: 获取话语列表"""
+    user = db.session.get(User, session['user_id'])
+    if not user:
+        return jsonify({'success': False, 'message': '用户不存在'}), 404
 
-    # 按分类分组
-    quotes_by_category = {}
-    for quote in all_quotes:
-        category = quote.get('category', '其他')
-        if category not in quotes_by_category:
-            quotes_by_category[category] = []
-        quotes_by_category[category].append(quote)
+    # 获取内置话语
+    builtin_quotes = db.session.execute(
+        db.select(Quote).filter_by(is_custom=False)
+    ).scalars().all()
 
-    return render_template('quotes.html', quotes_by_category=quotes_by_category, categories=categories)
+    # 获取用户自定义话语
+    custom_quotes = db.session.execute(
+        db.select(Quote).filter_by(is_custom=True, user_id=user.id)
+    ).scalars().all()
+
+    all_quotes = []
+    for q in builtin_quotes:
+        all_quotes.append({
+            'id': q.id,
+            'content': q.content,
+            'category': q.category,
+            'is_custom': False
+        })
+
+    for q in custom_quotes:
+        all_quotes.append({
+            'id': q.id,
+            'content': q.content,
+            'category': q.category,
+            'is_custom': True
+        })
+
+    return jsonify({
+        'success': True,
+        'quotes': all_quotes
+    })
 
 
-@quotes_bp.route('/quotes/add', methods=['GET', 'POST'])
+@quotes_bp.route('/api/quotes', methods=['POST'])
 @login_required
 def add_quote():
-    """添加自定义话语"""
-    if request.method == 'POST':
-        content = request.form.get('content', '').strip()
-        category = request.form.get('category', '个人').strip()
+    """API: 添加自定义话语"""
+    data = request.get_json()
+    content = data.get('content', '').strip() if data else ''
+    category = data.get('category', '个人').strip() if data else ''
 
-        if not content:
-            flash('话语内容不能为空', 'error')
-            return render_template('quote_add.html')
+    if not content:
+        return jsonify({'success': False, 'message': '话语内容不能为空'}), 400
 
-        if len(content) > 100:
-            flash('话语内容不能超过 100 字', 'error')
-            return render_template('quote_add.html')
+    if len(content) > 100:
+        return jsonify({'success': False, 'message': '话语内容不能超过 100 字'}), 400
 
-        QuoteStorage.add_custom(session['user_id'], content, category)
-        flash('话语添加成功', 'success')
-        return redirect(url_for('quotes.index'))
+    user = db.session.get(User, session['user_id'])
 
-    return render_template('quote_add.html')
+    quote = Quote(
+        content=content,
+        category=category,
+        is_custom=True,
+        user_id=user.id
+    )
+    db.session.add(quote)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'quote': {
+            'id': quote.id,
+            'content': quote.content,
+            'category': quote.category,
+            'is_custom': quote.is_custom
+        }
+    })
 
 
-@quotes_bp.route('/quotes/delete/<int:quote_id>', methods=['POST'])
+@quotes_bp.route('/api/quotes/<int:quote_id>', methods=['DELETE'])
 @login_required
 def delete_quote(quote_id):
-    """删除自定义话语"""
-    user_id = session['user_id']
-    data = QuoteStorage.get_all()
+    """API: 删除自定义话语"""
+    user = db.session.get(User, session['user_id'])
+    if not user:
+        return jsonify({'success': False, 'message': '用户不存在'}), 404
 
-    custom_quotes = data.get('custom', {}).get(str(user_id), [])
-    original_count = len(custom_quotes)
+    # 查找话语
+    quote = db.session.get(Quote, quote_id)
+    if not quote:
+        return jsonify({'success': False, 'message': '话语不存在'}), 404
 
-    # 过滤掉要删除的话语
-    data['custom'][str(user_id)] = [q for q in custom_quotes if q['id'] != quote_id]
-    QuoteStorage.save_all(data)
+    # 只能删除自己的话语
+    if quote.user_id != user.id:
+        return jsonify({'success': False, 'message': '无权删除他人的话语'}), 403
 
-    flash('话语已删除', 'success')
-    return redirect(url_for('quotes.index'))
+    db.session.delete(quote)
+    db.session.commit()
+
+    return jsonify({'success': True})
+
+
+@quotes_bp.route('/api/quotes/categories')
+@login_required
+def get_categories():
+    """API: 获取所有分类"""
+    categories = QuoteGenerator.get_all_categories()
+    return jsonify({
+        'success': True,
+        'categories': categories
+    })

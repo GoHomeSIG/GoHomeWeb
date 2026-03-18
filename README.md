@@ -23,18 +23,25 @@
 
 ## 技术栈
 
-- **后端**: Python + Flask
+- **后端**: Python + Flask + SQLAlchemy
 - **前端**: Vue 3 + Vite + Pinia + Vue Router + Axios + TailwindCSS
-- **数据存储**: JSON 文件（轻量级，无需数据库）
+- **数据库**: SQLite
 - **包管理**: pixi (Python), npm (Node.js)
 
 ## 快速开始
 
 ### 1. 安装依赖
 
+**后端（Python）：**
 ```bash
-cd HomeSignin
-pixi install
+cd GoHomeWeb
+pip install -r requirements.txt
+```
+
+**前端（Node.js）：**
+```bash
+cd frontend
+npm install
 ```
 
 ### 2. 配置环境变量（可选）
@@ -74,13 +81,16 @@ AI_MODEL=gpt-4o-mini
 
 **启动后端（Flask）：**
 ```bash
-pixi run dev
+python app.py
+```
+或指定端口：
+```bash
+PORT=5001 python app.py
 ```
 
 **启动前端（Vite + Vue 3）：**
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 
@@ -123,15 +133,10 @@ HomeSignin/
 │   ├── vite.config.js      # Vite 配置
 │   └── tailwind.config.js  # TailwindCSS 配置
 ├── data/
-│   ├── users.json          # 用户数据
-│   ├── checkins.json       # 签到记录
-│   ├── badges.json         # 徽章数据
-│   ├── ai_quotes.json      # AI 生成语录
-│   └── quotes.json         # 思乡话语（20 条内置）
+│   └── homesignin.db       # SQLite 数据库
 ├── models/
 │   ├── __init__.py
-│   ├── storage.py          # JSON 数据存储
-│   └── user.py             # 用户模型
+│   └── database.py         # 数据库模型
 ├── routes/
 │   ├── __init__.py
 │   ├── auth.py             # 认证路由
@@ -140,18 +145,14 @@ HomeSignin/
 │   ├── quotes.py           # 话语管理路由
 │   ├── ai_hometown.py      # AI 思乡话语生成路由
 │   ├── badges.py           # 徽章路由
-│   └── api.py              # JSON API 路由（供前端调用）
-├── templates/              # HTML 模板
-│   └── ai_hometown/        # AI 生成模板
-├── static/
-│   ├── css/
-│   │   └── style.css       # 样式文件
-│   └── js/
-│   │   └── main.js         # 前端脚本
-└── utils/
-    ├── __init__.py
-    ├── quote_generator.py  # 话语生成器
-    └── ai_hometown_generator.py  # AI 思乡话语生成器
+│   └── api.py              # JSON API 路由
+├── utils/
+│   ├── __init__.py
+│   ├── db_init.py          # 数据库初始化
+│   ├── quote_generator.py  # 话语生成器
+│   └── ai_hometown_generator.py  # AI 思乡话语生成器
+└── scripts/
+    └── migrate_json_to_sqlite.py  # 数据迁移脚本
 ```
 
 ## 内置思乡话语分类

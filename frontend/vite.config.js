@@ -15,8 +15,25 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 3000,
+      host: '0.0.0.0',
       proxy: {
         '/api': {
+          target: apiBaseUrl,
+          changeOrigin: true
+        },
+        '/login': {
+          target: apiBaseUrl,
+          changeOrigin: true
+        },
+        '/register': {
+          target: apiBaseUrl,
+          changeOrigin: true
+        },
+        '/logout': {
+          target: apiBaseUrl,
+          changeOrigin: true
+        },
+        '/me': {
           target: apiBaseUrl,
           changeOrigin: true
         },

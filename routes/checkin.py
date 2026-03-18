@@ -1,151 +1,211 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, session, request
+from flask import Blueprint, jsonify, request, session
 from datetime import datetime
-from models.user import User
-from models.storage import CheckinStorage, QuoteStorage, UserStorage
-from models.badge import BadgeStorage
-from models.ai_quote import AIQuoteStorage
-from utils.quote_generator import QuoteGenerator
-from utils.ai_hometown_generator import AIHometownGenerator
+from models.database import db, User, Checkin, Badge, AIQuote
 from routes.auth import login_required
+from routes.dashboard import get_checkin_stats
 from config import AI_API_KEY, AI_API_BASE_URL, AI_MODEL
 
 checkin_bp = Blueprint('checkin', __name__)
 
 
-@checkin_bp.route('/checkin', methods=['GET', 'POST'])
+@checkin_bp.route('/api/checkin/status', methods=['GET'])
+@login_required
+def get_checkin_status():
+    """获取签到状态 API"""
+    user = db.session.get(User, session['user_id'])
+    if not user:
+        return jsonify({'success': False, 'message': '用户不存在'}), 404
+
+    stats = get_checkin_stats(user)
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    # 检查今天是否已签到
+    checkin_today = db.session.execute(
+        db.select(Checkin).filter_by(user_id=user.id, checkin_date=today)
+    ).first()
+
+    return jsonify({
+        'success': True,
+        'has_checked_in_today': checkin_today is not None,
+        'stats': stats,
+        'last_checkin': {
+            'checkin_date': stats.get('last_checkin_date', '')
+        } if stats.get('last_checkin_date') else None
+    })
+
+
+@checkin_bp.route('/api/checkin', methods=['POST'])
 @login_required
 def do_checkin():
-    """签到打卡"""
-    user = User(UserStorage.get_by_id(session['user_id']))
+    """签到打卡 API"""
+    user = db.session.get(User, session['user_id'])
+    if not user:
+        return jsonify({'success': False, 'message': '用户不存在'}), 404
 
-    if request.method == 'POST':
-        new_badges = []  # 记录新解锁的勋章
+    today = datetime.now().strftime('%Y-%m-%d')
 
-        # 检查今天是否已签到
-        if user.has_checked_in_today():
-            flash('今天已经签到过了', 'info')
-            return redirect(url_for('dashboard.index'))
+    # 检查今天是否已签到
+    existing = db.session.execute(
+        db.select(Checkin).filter_by(user_id=user.id, checkin_date=today)
+    ).first()
 
-        # 检查特殊成就勋章
-        checkin_time = datetime.now()
+    if existing:
+        return jsonify({
+            'success': False,
+            'message': '今天已经签到过了'
+        }), 400
 
-        # 深夜未眠勋章 (凌晨 2 点后)
-        if checkin_time.hour >= 2:
-            badge = BadgeStorage.add_badge(user.id, 'late_night')
-            if badge:
-                new_badges.append(BadgeStorage.get_definition('late_night'))
+    new_badges = []  # 记录新解锁的徽章
 
-        # 早起鸟儿勋章 (早上 6 点前)
-        elif checkin_time.hour < 6:
-            badge = BadgeStorage.add_badge(user.id, 'early_bird')
-            if badge:
-                new_badges.append(BadgeStorage.get_definition('early_bird'))
+    # 检查特殊成就徽章
+    checkin_time = datetime.now()
 
-        # 优先尝试 AI 生成家人问候
-        quote_content = None
-        quote_dialect = ''
-        if AI_API_KEY:
-            try:
-                generator = AIHometownGenerator(
-                    api_key=AI_API_KEY,
-                    base_url=AI_API_BASE_URL,
-                    model=AI_MODEL
-                )
-                user_info = {
-                    'hometown': user.hometown,
-                    'current_city': getattr(user, 'current_city', ''),
-                    'family_role': getattr(user, 'family_role', '妈妈'),
-                    'nickname': getattr(user, 'nickname', '娃'),
-                    'tone_style': getattr(user, 'tone_style', '唠叨型'),
-                }
-                ai_result = generator.generate_family_greeting(user_info)
-                if ai_result:
-                    quote_content = ai_result['content']
-                    quote_dialect = ai_result.get('dialect', '')
-                    # 保存 AI 问候记录
-                    AIQuoteStorage.add_quote(
-                        user.id,
-                        quote_content,
-                        user_info['family_role'],
-                        quote_dialect
-                    )
-            except Exception as e:
-                print(f"AI 生成失败：{e}")
+    # 深夜未眠徽章 (凌晨 2 点后)
+    if checkin_time.hour >= 2:
+        badge = add_badge(user.id, 'late_night')
+        if badge:
+            new_badges.append(Badge.get_definition('late_night'))
 
-        # 如果 AI 生成失败，使用内置话语
-        if not quote_content:
-            quote = QuoteGenerator.get_random_quote(user.id)
-            quote_content = quote['content']
+    # 早起鸟儿徽章 (早上 6 点前)
+    elif checkin_time.hour < 6:
+        badge = add_badge(user.id, 'early_bird')
+        if badge:
+            new_badges.append(Badge.get_definition('early_bird'))
 
-        # 创建签到记录
-        checkin_data = {
-            'checkin_date': datetime.now().strftime('%Y-%m-%d'),
-            'checkin_time': datetime.now().isoformat(),
-            'quote_content': quote_content
-        }
-        CheckinStorage.add_checkin(user.id, checkin_data)
-
-        # 检查时间里程碑勋章
-        days_away = user.get_days_away_from_home()
-        time_badges = {
-            1: 'day_1', 7: 'day_7', 30: 'day_30',
-            100: 'day_100', 180: 'day_180', 365: 'day_365'
-        }
-        for threshold, badge_id in time_badges.items():
-            if days_away == threshold:
-                badge = BadgeStorage.add_badge(user.id, badge_id)
-                if badge:
-                    new_badges.append(BadgeStorage.get_definition(badge_id))
-
-        # 检查连续签到勋章
-        stats = user.get_checkin_stats()
-        streak_badges = {
-            3: 'streak_3', 7: 'streak_7', 15: 'streak_15',
-            30: 'streak_30', 100: 'streak_100'
-        }
-        for threshold, badge_id in streak_badges.items():
-            if stats['current_streak'] == threshold:
-                badge = BadgeStorage.add_badge(user.id, badge_id)
-                if badge:
-                    new_badges.append(BadgeStorage.get_definition(badge_id))
-
-        flash('签到成功！', 'success')
-        return render_template(
-            'checkin_result.html',
-            user=user,
-            quote={'content': quote_content, 'category': 'AI 生成' if AI_API_KEY else '内置', 'dialect': quote_dialect},
-            new_badges=new_badges
-        )
-
-    # GET 请求显示签到页面
-    if user.has_checked_in_today():
-        flash('今天已经签到过了', 'info')
-        return redirect(url_for('dashboard.index'))
-
-    return render_template('checkin.html', user=user)
-
-
-@checkin_bp.route('/checkin/history')
-@login_required
-def history():
-    """签到历史"""
-    user = User(UserStorage.get_by_id(session['user_id']))
-    checkins = CheckinStorage.get_by_user(user.id)
-
-    # 按时间倒序排列
-    checkins = sorted(checkins, key=lambda x: x.get('checkin_time', ''), reverse=True)
-
-    # 获取每条签到对应的话语（兼容新旧格式）
-    for checkin in checkins:
-        # 新格式：直接存储 quote_content
-        if 'quote_content' in checkin:
-            checkin['quote'] = {
-                'content': checkin['quote_content'],
-                'category': checkin.get('quote_category', 'AI 生成')
+    # 优先尝试 AI 生成家人问候
+    quote_content = None
+    quote_dialect = ''
+    if AI_API_KEY:
+        try:
+            from utils.ai_hometown_generator import AIHometownGenerator
+            generator = AIHometownGenerator(
+                api_key=AI_API_KEY,
+                base_url=AI_API_BASE_URL,
+                model=AI_MODEL
+            )
+            user_info = {
+                'hometown': user.hometown,
+                'current_city': getattr(user, 'current_city', ''),
+                'family_role': getattr(user, 'family_role', '妈妈'),
+                'nickname': getattr(user, 'nickname', '娃'),
+                'tone_style': getattr(user, 'tone_style', '唠叨型'),
             }
-        # 旧格式：存储 quote_id
-        elif 'quote_id' in checkin:
-            quote = QuoteGenerator.get_quote_by_id(checkin['quote_id'])
-            checkin['quote'] = quote
+            ai_result = generator.generate_family_greeting(user_info)
+            if ai_result:
+                quote_content = ai_result['content']
+                quote_dialect = ai_result.get('dialect', '')
+                # 保存 AI 问候记录
+                ai_quote = AIQuote(
+                    user_id=user.id,
+                    content=quote_content,
+                    family_role=user_info['family_role'],
+                    dialect=quote_dialect
+                )
+                db.session.add(ai_quote)
+        except Exception as e:
+            print(f"AI 生成失败：{e}")
 
-    return render_template('checkin_history.html', user=user, checkins=checkins)
+    # 如果 AI 生成失败，使用内置话语
+    if not quote_content:
+        from utils.quote_generator import QuoteGenerator
+        quote = QuoteGenerator.get_random_quote(user.id)
+        quote_content = quote['content']
+
+    # 创建签到记录
+    checkin = Checkin(
+        user_id=user.id,
+        checkin_date=today,
+        checkin_time=datetime.now(),
+        quote_content=quote_content,
+        quote_category='AI 生成' if AI_API_KEY and quote_content else '内置',
+        quote_dialect=quote_dialect
+    )
+    db.session.add(checkin)
+
+    # 检查时间里程碑徽章
+    days_away = get_days_away_from_home(user)
+    time_badges = {
+        1: 'day_1', 7: 'day_7', 30: 'day_30',
+        100: 'day_100', 180: 'day_180', 365: 'day_365'
+    }
+    for threshold, badge_id in time_badges.items():
+        if days_away == threshold:
+            badge = add_badge(user.id, badge_id)
+            if badge:
+                new_badges.append(Badge.get_definition(badge_id))
+
+    # 检查连续签到徽章
+    stats = get_checkin_stats(user)
+    streak_badges = {
+        3: 'streak_3', 7: 'streak_7', 15: 'streak_15',
+        30: 'streak_30', 100: 'streak_100'
+    }
+    for threshold, badge_id in streak_badges.items():
+        if stats['current_streak'] == threshold:
+            badge = add_badge(user.id, badge_id)
+            if badge:
+                new_badges.append(Badge.get_definition(badge_id))
+
+    db.session.commit()
+
+    # 返回结果
+    result = {
+        'success': True,
+        'checkin_date': today,
+        'stats': stats,
+        'new_badges': new_badges
+    }
+
+    if quote_content:
+        result['quote'] = {
+            'content': quote_content,
+            'category': 'AI 生成' if AI_API_KEY else '内置',
+            'dialect': quote_dialect
+        }
+
+    return jsonify(result)
+
+
+@checkin_bp.route('/api/checkin/history', methods=['GET'])
+@login_required
+def get_checkin_history():
+    """获取签到历史 API"""
+    user = db.session.get(User, session['user_id'])
+    if not user:
+        return jsonify({'success': False, 'message': '用户不存在'}), 404
+
+    checkins = db.session.execute(
+        db.select(Checkin)
+        .filter_by(user_id=user.id)
+        .order_by(Checkin.checkin_time.desc())
+    ).scalars().all()
+
+    return jsonify({
+        'success': True,
+        'checkins': [c.to_dict() for c in checkins]
+    })
+
+
+def add_badge(user_id, badge_id):
+    """给用户添加徽章（如果未获得）"""
+    existing = db.session.execute(
+        db.select(Badge).filter_by(user_id=user_id, badge_id=badge_id)
+    ).first()
+
+    if existing:
+        return None
+
+    badge = Badge(user_id=user_id, badge_id=badge_id)
+    db.session.add(badge)
+    return badge
+
+
+def get_days_away_from_home(user):
+    """计算离家天数"""
+    if not user.leave_home_date:
+        return 0
+    try:
+        leave_date = datetime.strptime(user.leave_home_date, '%Y-%m-%d')
+        return (datetime.now() - leave_date).days
+    except ValueError:
+        return 0
