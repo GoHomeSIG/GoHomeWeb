@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
+import { badgesAPI } from '../api'
 
 export const useBadgesStore = defineStore('badges', {
   state: () => ({
@@ -20,8 +20,8 @@ export const useBadgesStore = defineStore('badges', {
   actions: {
     async fetchBadges() {
       try {
-        const response = await axios.get('/api/badges', { withCredentials: true })
-        this.badges = response.data
+        const response = await badgesAPI.getList()
+        this.badges = response.data.badges || []
       } catch (error) {
         console.error('Fetch badges error:', error)
       }
@@ -29,8 +29,8 @@ export const useBadgesStore = defineStore('badges', {
 
     async fetchAllDefinitions() {
       try {
-        const response = await axios.get('/api/badges/definitions', { withCredentials: true })
-        this.allDefinitions = response.data
+        const response = await badgesAPI.getDefinitions()
+        this.allDefinitions = response.data.categories || {}
       } catch (error) {
         console.error('Fetch definitions error:', error)
       }

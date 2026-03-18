@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
+import { authAPI, dashboardAPI } from '../api'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -20,9 +20,7 @@ export const useUserStore = defineStore('user', {
   actions: {
     async login(username, password) {
       try {
-        const response = await axios.post('/api/login', { username, password }, {
-          withCredentials: true
-        })
+        const response = await authAPI.login(username, password)
 
         if (response.data.success) {
           const user = response.data.user
@@ -49,9 +47,7 @@ export const useUserStore = defineStore('user', {
 
     async register(userData) {
       try {
-        const response = await axios.post('/api/register', userData, {
-          withCredentials: true
-        })
+        const response = await authAPI.register(userData)
 
         if (response.data.success) {
           return { success: true }
@@ -65,7 +61,7 @@ export const useUserStore = defineStore('user', {
 
     async logout() {
       try {
-        await axios.get('/api/logout', { withCredentials: true })
+        await authAPI.logout()
       } catch (error) {
         console.error('Logout error:', error)
       }
@@ -85,7 +81,7 @@ export const useUserStore = defineStore('user', {
 
     async fetchProfile() {
       try {
-        const response = await axios.get('/api/profile', { withCredentials: true })
+        const response = await dashboardAPI.getProfile()
         const user = response.data.user
         this.id = user.id
         this.username = user.username

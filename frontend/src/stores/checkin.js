@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
+import { checkinAPI } from '../api'
 
 export const useCheckinStore = defineStore('checkin', {
   state: () => ({
@@ -33,7 +33,7 @@ export const useCheckinStore = defineStore('checkin', {
   actions: {
     async doCheckin() {
       try {
-        const response = await axios.post('/api/checkin', {}, { withCredentials: true })
+        const response = await checkinAPI.doCheckin()
 
         if (response.data.success) {
           const result = response.data
@@ -55,7 +55,7 @@ export const useCheckinStore = defineStore('checkin', {
 
     async fetchCheckinStatus() {
       try {
-        const response = await axios.get('/api/checkin/status', { withCredentials: true })
+        const response = await checkinAPI.getStatus()
         const data = response.data
         this.hasCheckedInToday = data.has_checked_in_today
         this.consecutiveDays = data.stats?.current_streak || 0
