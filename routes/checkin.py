@@ -8,7 +8,7 @@ from config import AI_API_KEY, AI_API_BASE_URL, AI_MODEL
 checkin_bp = Blueprint('checkin', __name__)
 
 
-@checkin_bp.route('/api/checkin/status', methods=['GET'])
+@checkin_bp.route('/checkin/status', methods=['GET'])
 @login_required
 def get_checkin_status():
     """获取签到状态 API"""
@@ -34,7 +34,7 @@ def get_checkin_status():
     })
 
 
-@checkin_bp.route('/api/checkin', methods=['POST'])
+@checkin_bp.route('/checkin', methods=['POST'])
 @login_required
 def do_checkin():
     """签到打卡 API"""
@@ -166,7 +166,7 @@ def do_checkin():
     return jsonify(result)
 
 
-@checkin_bp.route('/api/checkin/history', methods=['GET'])
+@checkin_bp.route('/checkin/history', methods=['GET'])
 @login_required
 def get_checkin_history():
     """获取签到历史 API"""
