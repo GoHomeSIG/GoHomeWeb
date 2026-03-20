@@ -6,10 +6,10 @@ from routes.auth import login_required
 dashboard_bp = Blueprint('dashboard', __name__)
 
 
-@dashboard_bp.route('/api/dashboard')
+@dashboard_bp.route('/dashboard')
 @login_required
 def get_dashboard():
-    """获取仪表盘数据 API"""
+    """获取仪表盘数据"""
     user = db.session.get(User, session['user_id'])
     if not user:
         return jsonify({'success': False, 'message': '用户不存在'}), 404
@@ -173,10 +173,10 @@ def get_last_checkin(user):
     }
 
 
-@dashboard_bp.route('/api/profile')
+@dashboard_bp.route('/profile')
 @login_required
 def get_profile():
-    """获取个人资料 API"""
+    """获取个人资料"""
     user = db.session.get(User, session['user_id'])
     if not user:
         return jsonify({'success': False, 'message': '用户不存在'}), 404
@@ -192,10 +192,10 @@ def get_profile():
     })
 
 
-@dashboard_bp.route('/api/profile', methods=['PUT'])
+@dashboard_bp.route('/profile', methods=['PUT'])
 @login_required
 def update_profile():
-    """更新个人资料 API"""
+    """更新个人资料"""
     data = request.get_json()
     user = db.session.get(User, session['user_id'])
     if not user:

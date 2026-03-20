@@ -38,10 +38,10 @@ export default api
 
 // API 方法
 export const authAPI = {
-  login: (username, password) => api.post('/login', { username, password }),
-  register: (data) => api.post('/register', data),
-  logout: () => api.get('/logout'),
-  getCurrentUser: () => api.get('/me')
+  login: (username, password) => api.post('/api/login', { username, password }),
+  register: (data) => api.post('/api/register', data),
+  logout: () => api.get('/api/logout'),
+  getCurrentUser: () => api.get('/api/me')
 }
 
 export const dashboardAPI = {
